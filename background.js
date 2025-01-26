@@ -1,6 +1,6 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'fetchAudio') {
-    fetchAudio(message.text, message.speaker, message.speedScale, message.pitch, message.intonationScale).then(audioBlob => {
+    fetchAudio(message.text, message.speaker, message.speedScale, message.pitch, message.intonationScale, message.host).then(audioBlob => {
         console.log('Audio blob fetched successfully:', audioBlob);
         sendResponse({ success: true, blob: audioBlob });
     }).catch(error => {
@@ -13,9 +13,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return true;
 });
 
-
-const ENDPOINT = 'http://192.168.1.161:50021';
-
 async function blobToBase64(blob) {
     const arrayBuffer = await blob.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
@@ -25,10 +22,10 @@ async function blobToBase64(blob) {
 }
 
 
-const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale) => {
+const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale, host) => {
   try {
     // Step 1: Send a GET request to get the audio query
-    const audioQueryUrl = `${ENDPOINT}/audio_query?text=${encodeURIComponent(text)}&speaker=${speaker}`;
+    const audioQueryUrl = `${host}/audio_query?text=${encodeURIComponent(text)}&speaker=${speaker}`;
     const audioQueryResponse = await fetch(audioQueryUrl, {
       method: 'POST',
       headers: {
@@ -37,7 +34,7 @@ const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale
     });
 
     if (!audioQueryResponse.ok) {
-      throw new Error('Failed to fetch audio query');
+      throw new Error(`Failed to fetch audio query: ${audioQueryUrl}`);
     }
 
     const audioQueryData = await audioQueryResponse.json(); // Assuming the response is JSON
@@ -49,7 +46,7 @@ const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale
     console.log('Response received', audioQueryData);
 
     // Step 2: Send a POST request to generate the audio (synthesis)
-    const synthesisUrl = `${ENDPOINT}/synthesis?speaker=${speaker}&enable_interrogative_upspeak=false`;
+    const synthesisUrl = `${host}/synthesis?speaker=${speaker}&enable_interrogative_upspeak=false`;
     const synthesisResponse = await fetch(synthesisUrl, {
       method: 'POST',
       headers: {

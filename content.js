@@ -18,7 +18,7 @@ function togglePlaying()
         pauseButton.textContent = "⏸";
 
         //Nudge the playback a little bit for a better experience
-        const playbackNudge = 0.1;
+        const playbackNudge = 0.3;
         audioClips[playIndex].currentTime -= playbackNudge;
 
         audioClips[playIndex].play();
@@ -72,25 +72,43 @@ function convertSeconds(seconds) {
     return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
+function getStorageAsync(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (result) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);  // Reject if there's an error
+      } else {
+        resolve(result);  // Resolve with the result if no error
+      }
+    });
+    });
+}
+
+// Function to ensure the host URL is in the correct format
+function formatHostUrl(host) {
+  // Ensure the URL starts with 'https://'
+  if (!/^http?:\/\//i.test(host)) {
+    host = 'http://' + host;  // Default to 'https://' if no protocol is present
+  }
+
+  // Remove trailing slash if it exists
+  host = host.replace(/\/$/, '');
+
+  return host;
+}
+
 let audioClips = [];
 let totalAudioLength = 0;
 let totalChars = 0;
 
-//67 中世
-
-//1 ずんだもん
-
-//47 whisperish cute easy on the ears, my favorite
-
-//13 best voice by far imo
-let speaker = 13;
-
-//Speed
-let speed = 0.9;
-//This is useless
-let pitch = 0.0;
-//Pitch accent scale
-let intonationScale = 1.0;
+// Default values
+const defaultSettings = {
+  host: '127.0.0.1:50021',
+  speaker: 1,
+  speed: 1.0,
+  pitch: 0.0,
+  intonation: 1.0
+};
 
 async function readAloudActivate() {
     const selectedText = SELECTED_TEXT.toString();
@@ -100,6 +118,7 @@ async function readAloudActivate() {
 
     console.log(sentences);
 
+    //Pause if playing
     if(playing) {
         togglePlaying();
     }
@@ -109,11 +128,25 @@ async function readAloudActivate() {
     audioClips.length = 0;
     totalAudioLength = 0;
 
+    const result = await getStorageAsync(['host', 'speaker', 'speed', 'pitch', 'intonation']);
+
+    const settings = {
+      host: formatHostUrl(result.host || defaultSettings.host),
+
+      speaker: (result.speaker === 0 || result.speaker === undefined) ? defaultSettings.speaker : result.speaker,
+
+      speed: result.speed || defaultSettings.speed,
+      pitch: result.pitch || defaultSettings.pitch,
+      intonation: result.intonation || defaultSettings.intonation
+    };
+
+    console.log(settings)
+
     for (const sentence of sentences) {
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
-          { type: 'fetchAudio', text: sentence, speaker: speaker, speedScale: speed, pitch: pitch, intonationScale: intonationScale },
+          { type: 'fetchAudio', text: sentence, speaker: settings.speaker, speedScale: settings.speed, pitch: settings.pitch, intonationScale: settings.intonation, host: settings.host },
           (response) => {
             if (response.success) {
               resolve(response); // Resolve with the response when successful
@@ -132,6 +165,7 @@ async function readAloudActivate() {
       audio.onloadedmetadata = () => {
         totalAudioLength += audio.duration;
       };
+
       audioClips.push(audio);
 
       if (audioClips.length === 1) {
@@ -140,9 +174,43 @@ async function readAloudActivate() {
       }
 
     } catch (error) {
-      console.error('Failed to fetch audio:', error);
+      console.error('Failed to fetch audio:', error.message);
     }
   }
+}
+
+function makeFinite(value) {
+  if (Number.isFinite(value))
+    return value;
+
+  return 0;
+}
+
+function updateStats(addTime, addChars) {
+
+    addTime = makeFinite(addTime);
+    addChars = makeFinite(addChars);
+
+    chrome.storage.local.get(['totalTime', 'totalChars'], (result) => {
+                // Set default values if they don't exist yet
+                let totalTime = result.totalTime || 0; // Default to 0 if undefined
+                let totalChars = result.totalChars || 0; // Default to 0 if undefined
+
+                // Add the new values
+                totalTime += addTime;
+                totalChars += addChars;
+
+                // Save the updated values back to chrome.storage.local
+                chrome.storage.local.set({
+                    totalTime: totalTime,
+                    totalChars: totalChars
+                    }, () => {
+                        console.log(`Updated stats [Time: ${totalTime} Chars: ${totalChars}]`);
+                    });
+
+                timeToSave = 0;
+                charsToSave = 0;
+                });
 }
 
 function closePopup() {
@@ -203,10 +271,18 @@ function createPopup() {
 
         // Simulate progress
         let progress = 0.5;
+
+        let lastPlayed = 0;
+        let lastChars = 0;
+
+        let autoSaveTime = 0;
+
         const updateProgress = () => {
 
             if(audioClips.length === 0)
                 return;
+
+            autoSaveTime += 0.1;
 
             let durationPlayed = 0;
             for(let i = 0; i < playIndex; i++)
@@ -234,7 +310,29 @@ function createPopup() {
             // Dynamically update the width of the progress bar
             progressBar.style.width = `${Math.ceil(progress*100)}%`;
 
-            clipCounter.textContent = `${convertSeconds(durationPlayed)} -> ${Math.floor(totalChars*progress)} :: ${playIndex + 1}/${audioClips.length} | ${convertSeconds(totalAudioLength)} | ${totalChars}`
+            let charProgress = Math.floor(totalChars*progress);
+
+            clipCounter.textContent = `${convertSeconds(durationPlayed)} -> ${charProgress} :: ${playIndex + 1}/${audioClips.length} | ${convertSeconds(totalAudioLength)} | ${totalChars}`
+
+            let diffPlayed = durationPlayed - lastPlayed;
+            let diffChars = charProgress - lastChars;
+
+            //We seeked backwards reset stats
+            if(diffPlayed < 0 || diffPlayed >= 3) {
+                lastPlayed = durationPlayed;
+                lastChars = charProgress;
+                console.log(`Discarding stats. was negative or too big`)
+            }
+
+             else if (autoSaveTime >= 1.5) {
+                 autoSaveTime = 0;
+
+
+                updateStats(diffPlayed, diffChars);
+
+                lastChars = charProgress;
+                lastPlayed = durationPlayed;
+            }
         };
 
         // Update progress every 100ms (simulate progress animation)
@@ -344,33 +442,7 @@ document.addEventListener('selectionchange', () => {
     }
 });
 
-
-// Detect text selection and position Play button
-function showReadButton(event) {
-    const selection = window.getSelection().toString().trim();
-
-    if (selection && selection.length > 0) {
-        readButton.style.display = 'block';
-        readButton.style.top = `${event.clientY + window.scrollY}px`;
-        readButton.style.left = `${event.clientX + window.scrollX}px`;
-    }
-}
-
-// Listen for selection events
-//document.addEventListener('mouseup', (e) => showReadButton(e));
-//document.addEventListener('touchend', (e) => showReadButton(e));
-
 // Initialize Play button
 createReadButton();
 createPopup();
 
-/*
-let popupScale = 1;
-// Adjust scale dynamically to counteract browser zoom
-function adjustScale() {
-   popupScale = 1 / window.devicePixelRatio; // Counteract zoom
-   popup.style.transform = `scale(${popupScale})`;
-}
-window.addEventListener('resize', adjustScale);
-adjustScale(); // Initial adjustment'
-*/
