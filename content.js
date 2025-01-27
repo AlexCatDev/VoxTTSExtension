@@ -323,9 +323,7 @@ function createPopup() {
                 lastPlayed = durationPlayed;
                 lastChars = charProgress;
                 console.log(`Discarding stats. was negative or too big`)
-            }
-
-            if (autoSaveTime >= 1.5) {
+            } else if (autoSaveTime >= 1.5) {
               autoSaveTime = 0;
 
               updateStats(diffPlayed, diffChars);
@@ -435,8 +433,8 @@ document.addEventListener('selectionchange', () => {
         SELECTED_TEXT = window.getSelection();
 
         readButton.style.display = 'block';
-        readButton.style.top = `${mouseY + window.scrollY}px`;
-        readButton.style.left = `${mouseX + window.scrollX + 50}px`;
+        readButton.style.top = `${window.scrollY + 100}px`;
+        readButton.style.left = `${window.scrollX}px`;
     } else {
         readButton.style.display = 'none';
     }

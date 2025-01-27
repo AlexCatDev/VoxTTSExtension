@@ -1,5 +1,6 @@
 
 #本語read-button {
+  font-size: 22px !important;
   position: absolute;
   padding: 5px 10px;
   background-color: #007bff;
