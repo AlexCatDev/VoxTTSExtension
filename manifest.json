@@ -10,6 +10,9 @@
   "background": {
     "service_worker": "background.js"
   },
+  "action": {
+    "default_popup": "options.html"
+  },
   "options_page": "options.html",
   "content_scripts": [
     {

@@ -1,3 +1,9 @@
+function convertSeconds(seconds) {
+    let minutes = Math.floor(seconds / 60);          // Get full minutes
+    let remainingSeconds = Math.floor(seconds % 60); // Get the whole number of seconds
+    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
  // Function to load saved settings from chrome.storage.local
     const loadSettings = () => {
       chrome.storage.local.get(['speed', 'pitch', 'intonation', 'host', 'speaker', 'totalChars', 'totalTime'], (result) => {
@@ -25,10 +31,10 @@
 
         // Load total read and listened values
         if (result.totalChars !== undefined) {
-          document.getElementById('totalCharsLabel').textContent = `Total Characters: ${result.totalChars}`;
+          document.getElementById('totalCharsLabel').textContent = `Total Characters: ${(result.totalChars / 1000).toFixed(2)} Thousand`;
         }
         if (result.totalTime !== undefined) {
-          document.getElementById('totalTimeLabel').textContent = `Total Time: ${result.totalTime}`;
+          document.getElementById('totalTimeLabel').textContent = `Total Time: ${convertSeconds(result.totalTime)}`;
         }
       });
     };

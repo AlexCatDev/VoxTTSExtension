@@ -18,8 +18,9 @@ function togglePlaying()
         pauseButton.textContent = "⏸";
 
         //Nudge the playback a little bit for a better experience
-        const playbackNudge = 0.3;
-        audioClips[playIndex].currentTime -= playbackNudge;
+        const playbackNudge = 0.7;
+        audioClips[playIndex]
+        audioClips[playIndex].currentTime = Math.max(audioClips[playIndex].currentTime - playbackNudge, 0);
 
         audioClips[playIndex].play();
 
@@ -324,18 +325,17 @@ function createPopup() {
                 console.log(`Discarding stats. was negative or too big`)
             }
 
-             else if (autoSaveTime >= 1.5) {
-                 autoSaveTime = 0;
+            if (autoSaveTime >= 1.5) {
+              autoSaveTime = 0;
 
+              updateStats(diffPlayed, diffChars);
 
-                updateStats(diffPlayed, diffChars);
-
-                lastChars = charProgress;
-                lastPlayed = durationPlayed;
+              lastChars = charProgress;
+              lastPlayed = durationPlayed;
             }
         };
 
-        // Update progress every 100ms (simulate progress animation)
+        // Update progress every 100ms
         setInterval(updateProgress, 100);
 }
 
