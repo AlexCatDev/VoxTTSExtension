@@ -1,24 +1,9 @@
-async function blobToBase64(blob) {
-    const arrayBuffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
-    return "data:audio/wav;base64," + btoa(binary);
-}
-
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'fetchAudio') {
     fetchAudio(message.text, message.speaker, message.speedScale, message.pitch, message.intonationScale, message.host).then(audioBlob => {
         console.log('Audio blob fetched successfully:', audioBlob);
-
-        //const bytes = new Uint8Array(arrayBuffer);
         sendResponse({ success: true, blob: audioBlob });
-        /*
-        blobToBase64(audioBlob).then(bblob =>{
-          sendResponse({ success: true, blob: bblob });
-        });
-        */
+
     }).catch(error => {
         console.error('Error:', error);
         sendResponse({ success: false, error: error.message });
@@ -68,18 +53,17 @@ const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale
 
     // Step 3: Get the audio (typically a .wav file) as a Blob
     const audioBlob = await synthesisResponse.blob();
-    //const base64 = await blobToBase64(audioBlob);
 
     const arrayBuffer = await audioBlob.arrayBuffer();
+    //This is a view into the arrayBuffer
     const bytes = new Uint8Array(arrayBuffer);
 
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
+    //This api is stupid so we need to convert it to text before we can send it back.. wasting resources
 
-    return binary;
+    let binaryText = '';
+    bytes.forEach(b => binaryText += String.fromCharCode(b));
 
-    // Return the audio blob (you can now play it or process it further)
-    //return audioBlob;
+    return binaryText;
 
   } catch (error) {
     console.error('Error fetching audio:', error);
