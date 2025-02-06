@@ -204,8 +204,22 @@ async function readAloudActivate() {
       //Add the sentence to the total chars and remove useless stuff
       totalChars += text.replace(/　|。| |、|「|」/g, '').length;
 
+      //console.log('Response:', response);
+      //console.log('blob type : ', typeof response.blob)
+
+      const binaryString = response.blob;
+
+      // Step 2: Convert the binary string into a Uint8Array
+      const bytes = new Uint8Array(binaryString.length);
+      for (var i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      //console.log('bytes:', bytes);
+      const audioBlob = new Blob([bytes.buffer], { type: 'audio/wav' });
+      const aUrl = URL.createObjectURL(audioBlob);
       //handle sucessful response
-      const audio = new Audio(response.blob);
+      const audio = new Audio(aUrl);
       audio.onloadedmetadata = () => {
         totalAudioLength += audio.duration;
       };

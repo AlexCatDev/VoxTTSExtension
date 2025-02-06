@@ -1,8 +1,24 @@
+async function blobToBase64(blob) {
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+    return "data:audio/wav;base64," + btoa(binary);
+}
+
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'fetchAudio') {
     fetchAudio(message.text, message.speaker, message.speedScale, message.pitch, message.intonationScale, message.host).then(audioBlob => {
         console.log('Audio blob fetched successfully:', audioBlob);
+
+        //const bytes = new Uint8Array(arrayBuffer);
         sendResponse({ success: true, blob: audioBlob });
+        /*
+        blobToBase64(audioBlob).then(bblob =>{
+          sendResponse({ success: true, blob: bblob });
+        });
+        */
     }).catch(error => {
         console.error('Error:', error);
         sendResponse({ success: false, error: error.message });
@@ -12,15 +28,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // IMPORTANT: Keep the message channel open for async response
           return true;
 });
-
-async function blobToBase64(blob) {
-    const arrayBuffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
-    return "data:audio/wav;base64," + btoa(binary);
-}
-
 
 const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale, host) => {
   try {
@@ -61,10 +68,18 @@ const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale
 
     // Step 3: Get the audio (typically a .wav file) as a Blob
     const audioBlob = await synthesisResponse.blob();
-    const base64 = await blobToBase64(audioBlob);
+    //const base64 = await blobToBase64(audioBlob);
+
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+
+    return binary;
 
     // Return the audio blob (you can now play it or process it further)
-    return base64;
+    //return audioBlob;
 
   } catch (error) {
     console.error('Error fetching audio:', error);
