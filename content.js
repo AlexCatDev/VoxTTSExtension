@@ -85,6 +85,39 @@ function getStorageAsync(keys) {
     });
 }
 
+function parseSentences(text) {
+  const lines = text.split('\n');
+  const result = [];
+  for (let line of lines) {
+    line = line.trim();
+    if (( line.startsWith('「') || line.startsWith('『') ) && ( line.endsWith('」') || line.endsWith('』') )) {
+      const content = line.slice(1, -1); // Remove the 「 and 」
+      // Split by full-width space first
+      const spaceParts = content.split('　');
+      for (const spacePart of spaceParts) {
+        // Split each part by period 。
+        const periodParts = spacePart.split('。');
+        for (const periodPart of periodParts) {
+          if (periodPart === '') continue;
+          let entry = periodPart;
+          // Check if the last character is a punctuation that doesn't need a period
+          const lastChar = entry.slice(-1);
+          if (!['！', '？', '!', '?'].includes(lastChar)) {
+            entry += '。';
+          }
+          result.push({ text: `「${entry}」`, type: 'dialogue' });
+        }
+      }
+    } else {
+      result.push({ text: line, type: 'naration' });
+    }
+  }
+
+  const sentences = result.filter(str => str.text.trim().length > 1);
+
+  return sentences;
+}
+
 // Function to ensure the host URL is in the correct format
 function formatHostUrl(host) {
   // Ensure the URL starts with 'https://'
@@ -106,16 +139,17 @@ let totalChars = 0;
 const defaultSettings = {
   host: '127.0.0.1:50021',
   speaker: 1,
+  speaker2: 0,
   speed: 1.0,
   pitch: 0.0,
   intonation: 1.0
 };
 
+
 async function readAloudActivate() {
     const selectedText = SELECTED_TEXT.toString();
 
-    const cleanText = selectedText.replace(/\n/g, '');
-    const sentences = cleanText.match(/(?:「.*?」|[^。]+。|[^。]+$)/g) || [];
+    const sentences = parseSentences(selectedText);
 
     console.log(sentences);
 
@@ -129,25 +163,34 @@ async function readAloudActivate() {
     audioClips.length = 0;
     totalAudioLength = 0;
 
-    const result = await getStorageAsync(['host', 'speaker', 'speed', 'pitch', 'intonation']);
+    const storage = await getStorageAsync(['host', 'speaker', 'speaker2', 'speed', 'pitch', 'intonation']);
 
     const settings = {
-      host: formatHostUrl(result.host || defaultSettings.host),
+      host: formatHostUrl(storage.host || defaultSettings.host),
 
-      speaker: (result.speaker === 0 || result.speaker === undefined) ? defaultSettings.speaker : result.speaker,
+      speaker: storage.speaker || defaultSettings.speaker,
+      /* Secondary Speaker for dialogue */
+      speaker2: storage.speaker2 || defaultSettings.speaker2,
 
-      speed: result.speed || defaultSettings.speed,
-      pitch: result.pitch || defaultSettings.pitch,
-      intonation: result.intonation || defaultSettings.intonation
+      speed: storage.speed || defaultSettings.speed,
+      pitch: storage.pitch || defaultSettings.pitch,
+      intonation: storage.intonation || defaultSettings.intonation
     };
 
     console.log(settings)
 
     for (const sentence of sentences) {
     try {
+
+      const isDialogue = sentence.type === 'dialogue';
+      let text = sentence.text;
+
+      let finalSpeaker = (isDialogue && settings.speaker2 !== 0) ? settings.speaker2 : settings.speaker;
+      let finalPitch = settings.pitch;
+
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
-          { type: 'fetchAudio', text: sentence, speaker: settings.speaker, speedScale: settings.speed, pitch: settings.pitch, intonationScale: settings.intonation, host: settings.host },
+          { type: 'fetchAudio', text: text, speaker: finalSpeaker, speedScale: settings.speed, pitch: finalPitch, intonationScale: settings.intonation, host: settings.host },
           (response) => {
             if (response.success) {
               resolve(response); // Resolve with the response when successful
@@ -159,7 +202,7 @@ async function readAloudActivate() {
       });
 
       //Add the sentence to the total chars and remove useless stuff
-      totalChars += sentence.replace(/　|。| |、|「|」/g, '').length;
+      totalChars += text.replace(/　|。| |、|「|」/g, '').length;
 
       //handle sucessful response
       const audio = new Audio(response.blob);
@@ -191,7 +234,7 @@ function updateStats(addTime, addChars) {
 
     addTime = makeFinite(addTime);
     addChars = makeFinite(addChars);
-
+try{
     chrome.storage.local.get(['totalTime', 'totalChars'], (result) => {
                 // Set default values if they don't exist yet
                 let totalTime = result.totalTime || 0; // Default to 0 if undefined
@@ -212,6 +255,9 @@ function updateStats(addTime, addChars) {
                 timeToSave = 0;
                 charsToSave = 0;
                 });
+}catch (error){
+  console.log(error);
+}
 }
 
 function closePopup() {

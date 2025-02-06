@@ -46,7 +46,7 @@ const fetchAudio = async (text, speaker, speedScale, pitchScale, intonationScale
     console.log('Response received', audioQueryData);
 
     // Step 2: Send a POST request to generate the audio (synthesis)
-    const synthesisUrl = `${host}/synthesis?speaker=${speaker}&enable_interrogative_upspeak=false`;
+    const synthesisUrl = `${host}/synthesis?speaker=${speaker}&enable_interrogative_upspeak=true`;
     const synthesisResponse = await fetch(synthesisUrl, {
       method: 'POST',
       headers: {

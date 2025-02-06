@@ -6,7 +6,7 @@ function convertSeconds(seconds) {
 
  // Function to load saved settings from chrome.storage.local
     const loadSettings = () => {
-      chrome.storage.local.get(['speed', 'pitch', 'intonation', 'host', 'speaker', 'totalChars', 'totalTime'], (result) => {
+      chrome.storage.local.get(['speed', 'pitch', 'intonation', 'host', 'speaker', 'speaker2', 'totalChars', 'totalTime'], (result) => {
         // Load saved slider values and apply them
         if (result.speed) {
           document.getElementById('speedSlider').value = result.speed;
@@ -29,6 +29,10 @@ function convertSeconds(seconds) {
           document.getElementById('speakerPicker').value = result.speaker;
         }
 
+        if (result.speaker2) {
+          document.getElementById('speakerPicker2').value = result.speaker2;
+        }
+
         // Load total read and listened values
         if (result.totalChars !== undefined) {
           document.getElementById('totalCharsLabel').textContent = `Total Characters: ${(result.totalChars / 1000).toFixed(2)} Thousand`;
@@ -46,6 +50,7 @@ function convertSeconds(seconds) {
       const intonation = document.getElementById('intonationSlider').value;
       const host = document.getElementById('hostTextbox').value;
       const speaker = document.getElementById('speakerPicker').value;
+      const speaker2 = document.getElementById('speakerPicker2').value;
 
       // Save the values to chrome.storage.local
       chrome.storage.local.set({
@@ -53,7 +58,8 @@ function convertSeconds(seconds) {
         pitch: pitch,
         intonation: intonation,
         host: host,
-        speaker: speaker
+        speaker: speaker,
+        speaker2: speaker2
       }, () => {
         console.log('All values saved to chrome.storage.local');
       });
@@ -81,6 +87,10 @@ function convertSeconds(seconds) {
     });
 
     document.getElementById('speakerPicker').addEventListener('input', () => {
+      saveValues(); // Save the number picker value to local storage
+    });
+
+    document.getElementById('speakerPicker2').addEventListener('input', () => {
       saveValues(); // Save the number picker value to local storage
     });
 
